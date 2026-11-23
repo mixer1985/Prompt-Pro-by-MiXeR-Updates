@@ -1,6 +1,6 @@
 {
-  "version": "1.5.16",
+  "version": "1.5.17",
   "source_url": "https://nonprofit-auto-specification-featured.trycloudflare.com",
-  "sha256": "39ee05f97cedf2c3b46535624bb18de972fbe95aac38c42a612f9086722bb0e8",
-  "notes": "Full-width Prompt Pro workstation. Unified Windows/HTML layout, safe prompt draft restoring, collapsible actions, local batch trash, automated future app updates."
+  "sha256": "0f8a479ca9dd56c01b6c66fc1d18b04199f36152543494857ebe1b7e05a4c8e0",
+  "notes": "Full-width consistent HTML layout, preserve HTML data and sync UI on Windows app startup, updates install unattended on next app quit."
 }
