@@ -1,0 +1,50 @@
+name: Publish Prompt Pro Windows update
+on:
+  push:
+    branches: [main]
+    paths: [release-request.json]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out release request
+        uses: actions/checkout@v4
+      - name: Download and verify update files
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(jq -r '.version' release-request.json)"
+          BASE="$(jq -r '.source_url' release-request.json)"
+          SHA256="$(jq -r '.sha256' release-request.json)"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then exit 1; fi
+          if [[ ! "$BASE" =~ ^https://[a-z0-9.-]+/?$ ]]; then exit 1; fi
+          if [[ ! "$SHA256" =~ ^[a-f0-9]{64}$ ]]; then exit 1; fi
+          mkdir -p release
+          INSTALLER="Prompt_Pro_by_MiXeR_Setup_"$VERSION"_x64.exe"
+          for FILE in latest.yml "$INSTALLER" "$INSTALLER.blockmap"; do
+            curl --fail --location --retry 5 --retry-delay 5 --connect-timeout 25 --max-time 900 "$BASE/$FILE" -o "release/$FILE"
+          done
+          printf '%s  %s\n' "$SHA256" "release/$INSTALLER" | sha256sum -c -
+          grep -Fxq "version: $VERSION" release/latest.yml
+          EXPECTED512="$(grep -m1 'sha512:' release/latest.yml | sed 's/.*sha512: *//')"
+          ACTUAL512="$(openssl dgst -sha512 -binary "release/$INSTALLER" | base64 -w0)"
+          if [[ "$EXPECTED512" != "$ACTUAL512" ]]; then echo 'Manifest SHA512 mismatch'; exit 1; fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "INSTALLER=$INSTALLER" >> "$GITHUB_ENV"
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if gh release view "v$VERSION" >/dev/null 2>&1; then echo "Release already exists"; exit 1; fi
+          gh release create "v$VERSION" \
+            "release/latest.yml" "release/$INSTALLER" "release/$INSTALLER.blockmap" \
+            --title "Prompt Pro by MiXeR $VERSION" \
+            --notes "Windows update $VERSION: full-width workstation, consistent HTML/Desktop menus, empty prompt start with optional draft restoration, collapsible actions, local multi-selection, and automatic future app update downloads with installation on exit. Existing data stays local. No Suno credits or music downloads. Not digitally code-signed." \
+            --latest
